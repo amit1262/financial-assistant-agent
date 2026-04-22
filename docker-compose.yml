@@ -1,0 +1,81 @@
+name: faa
+services:
+  ollama:
+    build:
+      context: ./ollama
+      dockerfile: Dockerfile
+    container_name: ollama_service
+    ports:
+      - "11434:11434"
+    volumes:
+      - vol_ollama:/app
+    networks:
+      - private_network
+    command: ["serve"]
+    env_file:
+      - .env
+    restart: on-failure:3
+
+  # ui:
+  #   build:
+  #     context: ./ui
+  #     dockerfile: Dockerfile
+  #   container_name: ui_service
+  #   ports:
+  #     - "3000:3000"
+  #   networks:
+  #     - private_network
+  #   depends_on:
+  #     - database
+  #     - agent
+  #   restart: unless-stopped
+
+  # database:
+  #   build: 
+  #     context: ./db
+  #     dockerfile: Dockerfile
+  #   container_name: db_service
+  #   ports:
+  #     - "5432:5432"
+  #   networks:
+  #     - private_network
+  #   restart: unless-stopped
+    
+  # data_ingestion:
+  #   build:
+  #     context: ./data_ingestion
+  #     dockerfile: Dockerfile
+  #   container_name: data_ingestion_service
+  #   networks:
+  #     - private_network
+  #   depends_on:
+  #     - database
+  #   restart: unless-stopped
+
+  agent:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    container_name: agent_service
+    ports:
+      - "8000:8000"
+    networks:
+      - private_network
+    depends_on:
+      - ollama
+    env_file: 
+      - ./agent/.env
+    volumes:
+      - ./agent:/app
+    restart: on-failure:3
+
+
+networks:
+  private_network:
+    driver: bridge
+
+volumes:
+  vol_ollama:
+    driver: local
+  vol_agent:
+    driver: local
