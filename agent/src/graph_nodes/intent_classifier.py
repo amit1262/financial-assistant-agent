@@ -1,5 +1,9 @@
 """Intent classifier node that routes queries based on whether RAG is needed"""
 
+"To Do - "
+"1. Routing when topic is switched by the user. "
+"2. Need more clarification from the user on ambiguous queries."
+
 import json
 import logging
 from typing import Literal
