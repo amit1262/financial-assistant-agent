@@ -1,0 +1,41 @@
+# this graph node check if MCP tools are available with the agent or not. If not, it can trigger a fallback mechanism or end the workflow gracefully.
+
+from langgraph.types import Command
+from technical_analysis_agent.state import State
+from services.mcp_client_manager import mcp_manager
+import logging
+from langchain_core.messages import SystemMessage
+from langgraph.graph import END
+
+logger = logging.getLogger(__name__)
+
+
+async def tool_checker(state: State) -> Command:
+    "Graph node to check mcp tool availability and update state accordingly"
+
+    mcp_client = mcp_manager.get_client("technical")
+    mcp_tools = (
+        await mcp_client.get_mcp_tools()
+    )  # async call to fetch tools from MCP client
+    if mcp_tools is None:
+        # No tools available, end workflow or trigger fallback
+        logger.warning("No MCP tools available for the agent, ending workflow.")
+        error_message = "No MCP tools configured/available for the agent."
+        # global variables
+        fallback_message = (
+            "Technical-Analysis-Agent: Failed (No MCP Tools Configured/Available)"
+        )
+
+        update_content = {
+            "messages": SystemMessage(content=fallback_message),
+            "error": error_message,
+            "status": "failure",
+        }
+        return Command(update=update_content, goto=END)
+    else:
+        logger.info(f"MCP tools available: {len(mcp_tools)}. Continuing workflow.")
+        update_content = {
+            "status": "success",
+            "error": "",
+        }
+        return Command(update=update_content, goto="generator")

@@ -1,0 +1,90 @@
+name: FAA
+services:
+  # agent services - advisor agent (orchestrator))
+  advisor_agent_service:
+    build:
+      context: ./agents/advisor_agent
+      dockerfile: Dockerfile
+    container_name: advisor_agent_container
+    ports:
+      - "${ADVISOR_AGENT_PORT}:${ADVISOR_AGENT_PORT}"
+    networks:
+      - private_network
+    env_file: 
+      - ./agents/advisor_agent/.env
+    volumes:
+      - ./agents/advisor_agent:/app
+      - /app/.venv  # Anonymous volume - PROTECTS the container's internal venv from the host
+    restart: on-failure:3
+    depends_on:
+      mlflow_service:
+        condition: service_healthy
+    environment:
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}
+      - MLFLOW_EXPERIMENT_NAME=${MLFLOW_EXPERIMENT_NAME}
+    command: >
+      uv run uvicorn app:app
+      --host 0.0.0.0
+      --port ${ADVISOR_AGENT_PORT}
+      --timeout-keep-alive 120
+  
+  market_intelligence_service:
+    build:
+      context: ./agents/market_intelligence_unit
+      dockerfile: Dockerfile
+    container_name: market_intelligence_container
+    ports:
+      - "${MIU_PORT}:${MIU_PORT}"
+    networks:
+      - private_network
+    env_file: 
+      - ./agents/market_intelligence_unit/.env
+    volumes:
+      - ./agents/market_intelligence_unit:/app
+      - /app/.venv  # Anonymous volume - PROTECTS the container's internal venv from the host
+    restart: on-failure:3
+    depends_on:
+      mlflow_service:
+        condition: service_healthy
+    environment:
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}
+      - MLFLOW_EXPERIMENT_NAME=${MLFLOW_EXPERIMENT_NAME}
+    command: >
+      uv run uvicorn app:app
+      --host 0.0.0.0
+      --port ${MIU_PORT}
+      --timeout-keep-alive 120
+  
+  # mlflow service for tracking experiments and model versions
+  mlflow_service:
+    build: 
+      context: ./mlflow
+      dockerfile: Dockerfile
+      args:
+        - MLFLOW_VERSION=${MLFLOW_VERSION}
+    container_name: mlflow_container
+    ports:
+      - "${MLFLOW_SERVICE_PORT}:${MLFLOW_SERVICE_PORT}"
+    networks:
+      - private_network
+    volumes:
+      - ./mlflow:/mlflow
+    restart: on-failure:3
+    command: >
+      mlflow server 
+      --host 0.0.0.0 
+      --port ${MLFLOW_SERVICE_PORT}
+      --default-artifact-root /mlflow/artifacts
+      --allowed-hosts ${MLFLOW_ALLOWED_HOSTS}
+    environment:
+      - MLFLOW_SERVICE_PORT=${MLFLOW_SERVICE_PORT}
+    healthcheck:
+      test: ["CMD", "python3", "/app/healthcheck.py"] # custom healthcheck script
+      interval: ${MLFLOW_INTERVAL}
+      timeout: ${MLFLOW_TIMEOUT}
+      retries: ${MLFLOW_RETRIES}
+      start_period: ${MLFLOW_START_PERIOD}
+
+networks:
+  private_network:
+    driver: bridge

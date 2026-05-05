@@ -1,5 +1,8 @@
-.env
+**/.env
 .venv
 .python-version
 __pycache__/
 *.pyc
+*/archive/*
+*test*
+**/shared/*

@@ -1,0 +1,42 @@
+name: faa
+services:
+  advisor_agent:
+    build:
+      context: ./agents/advisor_agent
+      dockerfile: Dockerfile
+    container_name: advisor_agent_service
+    ports:
+      - "8000:8000"
+    networks:
+      - private_network
+    env_file: 
+      - ./agents/advisor_agent/.env
+    volumes:
+      - vol_advisor_agent:/app
+    restart: on-failure:3
+  
+  # mlflow service for tracking experiments and model versions
+  mlflow_service:
+    build:
+      context: ./mlflow
+      dockerfile: Dockerfile
+    container_name: mlflow_service
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./mlflow/.env
+    networks:
+      - private_network
+    volumes:
+      - vol_mlflow:/app
+    restart: on-failure:3
+
+networks:
+  private_network:
+    driver: bridge
+
+volumes:
+  vol_advisor_agent:
+    driver: local
+  vol_mlflow:
+    driver: local
