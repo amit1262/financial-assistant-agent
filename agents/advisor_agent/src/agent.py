@@ -1,8 +1,10 @@
 "agent state graph definition."
 
 "To Do - potential node additions for future iterations - "
-"1. Active query refinement - make it standalone query e.g., changing How about its P/E? to What is Apple's P/E ratio? Usually first node."
-"2. Chat summarization - summarize long conversations to keep context window in check. Job is to compress the conversation into a 'Current State of Knowledge' string. Could be at end of graph or triggered conditionally."
+"1. Check MemorySaver to make it more persistent across runs"
+"2. What happens at Scale - multiple users, multiple concurrent runs - how to manage state and memory across runs? (potentially need to add user/session management in state schema and graph nodes)"
+"3. Async execution of graph"
+"4. Add reasoning models - different for different nodes in graph"
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
