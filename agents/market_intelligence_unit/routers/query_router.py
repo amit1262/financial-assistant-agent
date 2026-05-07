@@ -6,7 +6,7 @@ from services.schemas import QueryResponse
 logger = logging.getLogger(__name__)
 
 # Create router
-router = APIRouter(tags=["market_intelligence_unit"])
+router = APIRouter(tags=["Market Intelligence Agents"])
 
 
 # API endpoints

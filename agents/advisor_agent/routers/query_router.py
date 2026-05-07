@@ -6,7 +6,7 @@ from services import query_service
 logger = logging.getLogger(__name__)
 
 # Create router
-router = APIRouter(tags=["query"])
+router = APIRouter(tags=["Advisor Agent"])
 
 
 # API endpoints
