@@ -1,4 +1,4 @@
-# Financial Assistant Agent
+# Multi-Agent Financial Analysis Assistant
 
 ![Python](https://img.shields.io/badge/python-3.13-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-green?logo=fastapi)
@@ -12,11 +12,11 @@
 ![MLflow](https://img.shields.io/badge/MLflow-Observability-blue?logo=mlflow)
 ![Docker](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)
 ![Status](https://img.shields.io/badge/status-active-green.svg)
-![Last Commit](https://img.shields.io/github/last-commit/amit1262/financial-assistant-agent/develop)
+![Last Commit](https://img.shields.io/github/last-commit/amit1262/multi-agent-financial-analysis-assistant/develop)
 
 ## Overview
 
-The **Financial Assistant Agent** is a multi-agent AI system designed to assist users with comprehensive financial inquiries. From generic conceptual discussions and continued conversations to highly specific price-action analysis (e.g., _"What happened to NVDA in the last couple of days?"_), the platform provides data-grounded and concise insights.
+The **Financial Analysis Assistant** is a multi-agent AI system designed to assist users with comprehensive financial inquiries. From generic conceptual discussions and continued conversations to highly specific price-action analysis (e.g., _"What happened to NVDA in the last couple of days?"_), the platform provides data-grounded and concise insights.
 
 Built on a modular architecture powered by **LangGraph** and **FastAPI**, the platform intelligently combines specialized autonomous agents to process technical, fundamental, and sentiment-based signals. The system is designed for multi-turn interactions, allowing users to follow up on complex findings with further questions.
 
@@ -99,9 +99,7 @@ The project is under active development with the following milestones planned:
 
 ### Prerequisites
 
-- Python 3.13+
-- Docker & Docker Compose
-- [UV](https://github.com/astral-sh/uv) (Recommended for package management)
+- **Docker & Docker Compose** (The system is fully containerized and self-sufficient)
 
 ### Setup
 
@@ -109,21 +107,30 @@ The project is under active development with the following milestones planned:
 
    ```bash
    git clone <your-repo-url>
-   cd financial-assistant-agent
+   cd multi-agent-financial-analysis-assistant
    ```
 
 2. **Configure Environment Variables**:
-   Create a `.env` file in the root and in the respective agent directories:
+   The system requires three separate `.env` files. Copy the provided `.env.example` files to `.env` in their respective directories:
+
+   **Root Directory** (`.env`):
 
    ```bash
-   # Root / Market Intelligence Unit .env
-   OPENAI_API_KEY="your-key"
-   MLFLOW_TRACKING_URI="http://mlflow_container:5000"
+   cp .env.example .env
    ```
 
-3. **Install Dependencies (Local Development)**:
+   **Advisor Agent** (`agents/advisor_agent/.env`):
+
    ```bash
-   uv sync
+   cp agents/advisor_agent/.env.example agents/advisor_agent/.env
+   # Update OPENROUTER_API_KEY in agents/advisor_agent/.env
+   ```
+
+   **Market Intelligence Unit** (`agents/market_intelligence_unit/.env`):
+
+   ```bash
+   cp agents/market_intelligence_unit/.env.example agents/market_intelligence_unit/.env
+   # Update OPENROUTER_API_KEY and ALPHAVANTAGE keys in agents/market_intelligence_unit/.env
    ```
 
 ---
