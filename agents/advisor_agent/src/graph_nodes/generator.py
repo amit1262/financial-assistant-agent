@@ -3,7 +3,7 @@
 import logging
 import json
 from src.state import State
-from src.model import language_model
+from src.model import model
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
 logger = logging.getLogger(__name__)
@@ -17,15 +17,12 @@ GENERATOR_SYSTEM_PROMPT = (
 )
 
 
-def generator(state: State):
+async def generator(state: State):
     """Generate response using conversation history and context summary.
-
     Uses all previous messages (excluding current user query) and the current_topic_summary
     to build context, then generates a response to the user's current query.
-
     Args:
         state: Current state containing messages, current_topic_summary, and retrieved_context
-
     Returns:
         dict with messages list updated with the generated AIMessage response
     """
@@ -81,7 +78,7 @@ def generator(state: State):
         )
 
         # Call LLM to generate response
-        llm_response = language_model.invoke(llm_messages)
+        llm_response = await model.ainvoke(llm_messages)
         response_content = llm_response.content
 
         # Parse the JSON response to extract response and key-points

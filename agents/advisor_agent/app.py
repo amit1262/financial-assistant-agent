@@ -17,9 +17,10 @@ logger.info("=" * 50)
 logger.info("Starting Financial Assistant Agent")
 logger.info("=" * 50)
 
-# import routers after logging is configured to ensure any logs from routers are captured
+# imports after logging is configured to ensure any logs from routers/services are captured
 from routers.query_router import router as query_router
-
+from services.agent_manager import manager
+import src.agent as advisor_agent
 
 logger.info("Query router loaded successfully")
 
@@ -37,7 +38,20 @@ async def lifespan(app: FastAPI):
             f"Experiment Name: {os.getenv('MLFLOW_EXPERIMENT_NAME')} initialized in lifespan"
         )
 
+        # create agent graph and register with manager
+        advisor_agent_graph = await advisor_agent.build_agent_graph()
+        if advisor_agent_graph is None:
+            logger.error(
+                "Failed to build advisor agent graph. Check previous logs for details."
+            )
+            raise Exception("Advisor agent graph construction failed.")
+        manager.register_agent(agent_name="advisor", agent_instance=advisor_agent_graph)
+
         yield  # app runs after this point
+
+        # cleanup models before shutdown
+        logger.info("Shutting down Financial Assistant Agent")
+        manager.agents.clear()
 
     except Exception as e:
         logger.error(
@@ -49,4 +63,4 @@ async def lifespan(app: FastAPI):
 # Initialize FastAPI
 app = FastAPI(lifespan=lifespan)
 # Setup routes
-app.include_router(query_router)
+app.include_router(router=query_router)

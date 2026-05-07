@@ -1,0 +1,8 @@
+{
+    "servers": {
+        "alphavantage": {
+            "url": "https://mcp.alphavantage.co/mcp?apikey={API_KEY}",
+            "transport": "streamable_http"
+            }
+    }
+}

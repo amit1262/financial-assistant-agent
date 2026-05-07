@@ -7,17 +7,10 @@ from src.state import State
 logger = logging.getLogger(__name__)
 
 
-def pretty_print_state(state: State) -> dict:
+async def pretty_print_state(state: State) -> dict:
     """Pretty print the current state for debugging purposes.
-
     This is a final debugging node that displays all state information
     in a readable format. Does not modify state.
-
-    Args:
-        state: Current state containing all graph data
-
-    Returns:
-        Empty dict (no state modifications)
     """
     try:
         logger.info("\n" + "=" * 80)

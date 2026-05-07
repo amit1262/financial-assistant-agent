@@ -37,13 +37,52 @@ async def process_query(agent_name: str, agent_query: str) -> dict:
 
             return {"answer": final_answer, "status": "success", "error_message": None}
 
-        elif agent_name == "fundamentals":
+        elif agent_name == "fundamental":
             # invoke the fundamentals analysis agent workflow
-            pass
+            agent = manager.get_agent(agent_name)
+            config = {
+                "configurable": {"thread_id": "default_thread"}
+            }  # TODO - use real user_id
+            agent_msg = {"messages": [AIMessage(content=agent_query)]}
+            result = await agent.ainvoke(agent_msg, config=config)
+            logger.info(
+                f"[Fundamental Agent] Processed agent query - {agent_query} \nResult: {result}"
+            )
+            # Only return the content of the last message (the answer)
+            # result["messages"] is a list of LangChain messages
+            final_answer = (
+                result["messages"][-1].content
+                if result.get("messages")
+                else "No response generated."
+            )
+            logger.info(
+                f"[Fundamental Agent] Final answer for query - {agent_query} \nAnswer:\n {final_answer}"
+            )
+            return {"answer": final_answer, "status": "success", "error_message": None}
 
         elif agent_name == "news":
             # invoke the sentiment/news analysis agent workflow
-            pass
+            agent = manager.get_agent(agent_name)
+            config = {
+                "configurable": {"thread_id": "default_thread"}
+            }  # TODO - use real user_id
+            agent_msg = {"messages": [AIMessage(content=agent_query)]}
+            result = await agent.ainvoke(agent_msg, config=config)
+            logger.info(
+                f"[News Agent] Processed agent query - {agent_query} \nResult: {result}"
+            )
+            # Only return the content of the last message (the answer)
+            # result["messages"] is a list of LangChain messages
+            final_answer = (
+                result["messages"][-1].content
+                if result.get("messages")
+                else "No response generated."
+            )
+            logger.info(
+                f"[News Agent] Final answer for query - {agent_query} \nAnswer:\n {final_answer}"
+            )
+            return {"answer": final_answer, "status": "success", "error_message": None}
+
         else:
             logger.warning(f"[QueryService] Unknown agent name: {agent_name}")
             return {
