@@ -11,9 +11,7 @@ ENV UV_LINK_MODE=copy
 
 WORKDIR /app
 
-COPY pyproject.toml uv.lock* ./
-
-# Copy app code
+# Copy everything to the container
 COPY . .
 
 # install dependencies and build the virtual environment

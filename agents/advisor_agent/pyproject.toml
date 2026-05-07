@@ -18,6 +18,8 @@ dependencies = [
     "langchain-openrouter>=0.2.1",
     "mlflow-skinny>=3.11.0",
     "pandas>=3.0.0",
+    "pygments>=2.0.0",
+    "ruff>=0.10.0",
 ]
 
 [tool.uv]

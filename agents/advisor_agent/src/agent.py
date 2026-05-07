@@ -3,8 +3,7 @@
 "To Do - potential node additions for future iterations - "
 "1. Check MemorySaver to make it more persistent across runs"
 "2. What happens at Scale - multiple users, multiple concurrent runs - how to manage state and memory across runs? (potentially need to add user/session management in state schema and graph nodes)"
-"3. Async execution of graph"
-"4. Add reasoning models - different for different nodes in graph"
+"3. Add reasoning models - different for different nodes in graph"
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
@@ -18,7 +17,7 @@ from src.graph_nodes.state_printer import pretty_print_state
 
 
 # Build LangGraph workflow
-def build_agent_graph():
+async def build_agent_graph():
     # workflow graph definition
     workflow = StateGraph(state_schema=State)
 
@@ -44,18 +43,13 @@ def build_agent_graph():
 
     # state persistence setup
     memory = MemorySaver()
-
     # compile graph
     graph = workflow.compile(checkpointer=memory)
-
     return graph
 
 
-def visualize_agent(graph):
+async def visualize_agent(graph):
     # visualize the graph
     img = graph.get_graph().draw_mermaid_png()
     with open("workflow.png", "wb") as f:
         f.write(img)
-
-
-agent = build_agent_graph()

@@ -2,7 +2,7 @@
 
 import logging
 from src.state import State
-from src.model import language_model
+from src.model import model
 from langchain_core.messages import SystemMessage, HumanMessage, RemoveMessage
 
 logger = logging.getLogger(__name__)
@@ -20,18 +20,10 @@ REFINEMENT_SYSTEM_PROMPT = (
 )
 
 
-def query_refiner(state: State) -> dict:
+async def query_refiner(state: State) -> dict:
     """Refine user query using conversation context.
-
     Takes the current user query and last few messages to create a comprehensive,
-    self-contained query that incorporates relevant context from the conversation.
-
-    Args:
-        state: Current state containing messages
-
-    Returns:
-        Command with updated messages list (original user message replaced with refined query)
-    """
+    self-contained query that incorporates relevant context from the conversation."""
     try:
         messages = state.get("messages", [])
         current_summary = state.get("current_topic_summary", "")
@@ -92,7 +84,7 @@ def query_refiner(state: State) -> dict:
         ]
 
         # Call LLM to refine query
-        refined_response = language_model.invoke(llm_messages)
+        refined_response = await model.ainvoke(llm_messages)
         refined_query = refined_response.content
 
         logger.info(f"Refined query: {refined_query}...")

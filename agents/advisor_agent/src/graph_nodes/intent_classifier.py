@@ -8,7 +8,7 @@ import json
 import logging
 from typing import Literal
 from src.state import State
-from src.model import language_model
+from src.model import model
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.types import Command
 
@@ -45,10 +45,10 @@ SYSTEM_PROMPT = (
     "Your role is to carefully analyze the user query and estimate if properly answering it "
     "requires RAG i.e., retrieving any external, semantically relevant data/context from vector database or if "
     "it can be answered directly by the LLM "
-    "based on general knowledge, reasoning, and other tools it has access to. \n"
-    "LLM Tools - Note that the LLM has access to certain tools as well e.g., open web search. These tools can help "
-    "answer questions that require up-to-date information (news, sentiments etc.) or any specific financial concept. \n"
-    "RAG - On the other hand, the database (which the RAG/retriever node retrieves from) "
+    "based on general knowledge, reasoning, and other tools it has access to."
+    "\n\nLLM Tools - \nNote that the LLM has access to certain tools as well e.g., open web search. These tools can help "
+    "answer questions that require up-to-date information (news, sentiments etc.) or any specific financial concept."
+    "\n\nRAG - On the other hand, the database (which the RAG/retriever node retrieves from) "
     "contains specific financial "
     "data (for some companies) like previous earning releases, stock performances, "
     "shareholder meeting details, business plans/vision details and so on. \n"
@@ -57,18 +57,10 @@ SYSTEM_PROMPT = (
 )
 
 
-def intent_classifier(state: State) -> Command[Literal["retriever", "generator"]]:
+async def intent_classifier(state: State) -> Command[Literal["retriever", "generator"]]:
     """Classify if query needs RAG (data retrieval) or can be answered directly.
-
     Uses XML delimiters to protect against prompt injection attacks.
-    Returns Command with state update and routing to next node.
-
-    Args:
-        state: Current state containing messages
-
-    Returns:
-        Command with intent update and goto routing to next node
-    """
+    Returns Command with state update and routing to next node."""
     try:
         # Get the last user message
         user_query = state["messages"][-1].content
@@ -83,7 +75,7 @@ def intent_classifier(state: State) -> Command[Literal["retriever", "generator"]
             HumanMessage(content=user_prompt),
         ]
 
-        response = language_model.invoke(messages)
+        response = await model.ainvoke(messages)
         logger.info(f"LLM response for intent classification: {response.content}")
 
         # Parse JSON response with injection-safe fallback

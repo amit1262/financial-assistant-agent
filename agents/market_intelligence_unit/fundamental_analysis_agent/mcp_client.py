@@ -1,6 +1,5 @@
 # this module utilizes the user-defined MCP servers configs to create MCP clients
 import json
-from multiprocessing import Value
 import os
 import logging
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -35,20 +34,20 @@ class MCPClient:
         """Create the MCP client instance."""
         if not servers:
             logger.warning(
-                "[Technical Agent] No servers available to create MCP client"
+                "[Fundamental Agent] No servers available to create MCP client"
             )
             raise ValueError(
-                "[Technical Agent] No servers available to create MCP client"
+                "[Fundamental Agent] No servers available to create MCP client"
             )
         try:
             client = MultiServerMCPClient(
                 connections=servers, tool_name_prefix=tool_name_prefix
             )
-            logger.info("[Technical Agent] MCP Client successfully created")
+            logger.info("[Fundamental Agent] MCP Client successfully created")
             return client
         except Exception as e:
-            logger.error(f"[Technical Agent] Error creating MCP Client: {e}")
-            raise ValueError(f"[Technical Agent] Error creating MCP Client: {e}")
+            logger.error(f"[Fundamental Agent] Error creating MCP Client: {e}")
+            raise ValueError(f"[Fundamental Agent] Error creating MCP Client: {e}")
 
     async def _get_servers(mcp_config_path) -> dict:
         """Read and return the MCP server configuration."""
@@ -61,9 +60,11 @@ class MCPClient:
             final_dict = {}
 
             if not servers_dict:
-                logger.warning("No servers configured in mcp-config.json")
+                logger.warning(
+                    "[Fundamental Agent] No servers configured in mcp-config.json"
+                )
                 raise ValueError(
-                    "[Technical Agent] No servers configured in mcp-config.json"
+                    "[Fundamental Agent] No servers configured in mcp-config.json"
                 )
 
             # Substitute API keys
@@ -71,15 +72,15 @@ class MCPClient:
                 url = server_config.get("url", "")
 
                 if "API_KEY" in url:
-                    env_key_name = f"{server_name.upper()}_API_KEY_TA"
+                    env_key_name = f"{server_name.upper()}_API_KEY_FA"
                     api_key = os.getenv(env_key_name)
 
                     if not api_key:
                         logger.error(
-                            f"Missing API key for '{server_name}': set {env_key_name} env var"
+                            f"[Fundamental Agent] Missing API key for '{server_name}': set {env_key_name} env var"
                         )
                         raise ValueError(
-                            f"Environment variable not set: {env_key_name}"
+                            f"[Fundamental Agent] Environment variable not set: {env_key_name}"
                         )
                     else:
                         server_config["url"] = url.format(API_KEY=api_key)
@@ -90,39 +91,39 @@ class MCPClient:
             return final_dict
 
         except FileNotFoundError as e:
-            logger.error(f"Config file missing: {e}")
-            raise ValueError(f"[Technical Agent] Config file missing: {e}")
+            logger.error(f"[Fundamental Agent] Config file missing: {e}")
+            raise ValueError(f"[Fundamental Agent] Config file missing: {e}")
 
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in config: {e}")
-            raise ValueError(f"[Technical Agent] Invalid JSON in config: {e}")
+            logger.error(f"[Fundamental Agent] Invalid JSON in config: {e}")
+            raise ValueError(f"[Fundamental Agent] Invalid JSON in config: {e}")
 
     async def fetch_tools(self, server_name: str = None) -> None:
         try:
             if not self.client:
                 logger.warning(
-                    "[Technical Agent] MCP client not initialized, cannot fetch tools"
+                    "[Fundamental Agent] MCP client not initialized, cannot fetch tools"
                 )
                 raise ValueError(
-                    "[Technical Agent] MCP client not initialized, cannot fetch tools"
+                    "[Fundamental Agent] MCP client not initialized, cannot fetch tools"
                 )
 
             logger.info(
-                f"[Technical Agent] Fetching tools - MCP client: {self.client}, Server: {server_name or 'all servers'}"
+                f"[Fundamental Agent] Fetching tools - MCP client: {self.client}, Server: {server_name or 'all servers'}"
             )
             tools = await self.client.get_tools(server_name=server_name)
-            logger.info(f"[Technical Agent] Tools fetched: {tools}")
+            logger.info(f"[Fundamental Agent] Tools fetched: {tools}")
             self._cached_tools = tools  # cache the tools
         except Exception as e:
-            logger.error(f"[Technical Agent] Error fetching tools: {e}")
+            logger.error(f"[Fundamental Agent] Error fetching tools: {e}")
             self._cached_tools = None
 
     async def get_mcp_tools(self) -> list:
         """Return cached tools if available, otherwise fetch from client."""
         if self._cached_tools is not None:
-            logger.info("[Technical Agent] Returning cached tools")
+            logger.info("[Fundamental Agent] Returning cached tools")
             return self._cached_tools
         else:
-            logger.info("[Technical Agent] No cached tools, fetching from MCP client")
+            logger.info("[Fundamental Agent] No cached tools, fetching from MCP client")
             await self.fetch_tools()
             return self._cached_tools

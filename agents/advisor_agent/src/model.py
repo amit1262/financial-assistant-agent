@@ -33,4 +33,4 @@ def _initialize_model():
         raise RuntimeError(f"Error initializing model: {e}")
 
 
-language_model = _initialize_model()
+model = _initialize_model()

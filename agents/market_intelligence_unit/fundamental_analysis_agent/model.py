@@ -12,27 +12,27 @@ logger = logging.getLogger(__name__)
 # Initialize model once at module load time
 def _initialize_model():
     """Initialize Chat LLM from environment variables"""
-    model_name = os.getenv("TECHNICAL_ANALYSIS_MODEL_NAME")
+    model_name = os.getenv("FUNDAMENTAL_ANALYSIS_MODEL_NAME")
     if model_name is None:
-        logger.error("TECHNICAL_ANALYSIS_MODEL_NAME environment variable is not set")
+        logger.error("FUNDAMENTAL_ANALYSIS_MODEL_NAME environment variable is not set")
         raise RuntimeError(
-            "TECHNICAL_ANALYSIS_MODEL_NAME environment variable is required"
+            "FUNDAMENTAL_ANALYSIS_MODEL_NAME environment variable is required"
         )
 
     try:
         model = ChatOpenRouter(
             model=model_name,
-            temperature=float(os.getenv("TECHNICAL_ANALYSIS_MODEL_TEMPERATURE", 0.2)),
+            temperature=float(os.getenv("FUNDAMENTAL_ANALYSIS_MODEL_TEMPERATURE", 0.2)),
             # max_tokens=1024,
             max_retries=5,
         )
-        logger.info(f"[Technical Agent] Initialized model: {model_name} ")
+        logger.info(f"[Fundamental Agent] Initialized model: {model_name} ")
         return model
     except Exception as e:
         logger.error(
-            f"[Technical Agent] Failed to initialize model '{model_name}': {e}"
+            f"[Fundamental Agent] Failed to initialize model '{model_name}': {e}"
         )
-        raise RuntimeError(f"[Technical Agent] Error initializing model: {e}")
+        raise RuntimeError(f"[Fundamental Agent] Error initializing model: {e}")
 
 
 model = _initialize_model()

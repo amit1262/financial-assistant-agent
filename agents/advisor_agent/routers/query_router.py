@@ -11,12 +11,10 @@ router = APIRouter(tags=["query"])
 
 # API endpoints
 @router.post("/query", response_model=QueryResponse)
-def query_agent(request: QueryRequest) -> QueryResponse:
+async def query_agent(request: QueryRequest) -> QueryResponse:
     """Endpoint to process user queries through the agent workflow
-
     Args:
         request: QueryRequest containing the user's question and user_id
-
     Returns:
         QueryResponse with the agent's answer, status, and HTTP code
     """
@@ -24,7 +22,7 @@ def query_agent(request: QueryRequest) -> QueryResponse:
         # Extract user_id for conversation persistence (thread_id)
         user_id = request.user_id
         # Invoke agent - LangGraph automatically manages state
-        result = query_service.process_query(user_id, request.question)
+        result = await query_service.process_query(user_id, request.question)
 
         # Handle status signal from service
         if result["status"] == "success":

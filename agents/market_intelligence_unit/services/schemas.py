@@ -1,4 +1,4 @@
-"""API Request and Response models for Financial Assistant Agent"""
+"""API Request and Response models for Fundamental Analysis Agent"""
 
 from os import error
 from typing import Any
