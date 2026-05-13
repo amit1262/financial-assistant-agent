@@ -16,10 +16,11 @@ dependencies = [
     "requests>=2.31.0",
     "langchain-openrouter>=0.2.1",
     "mlflow-skinny>=3.11.0",
-    "pandas>=3.0.0",
     "langchain-mcp-adapters>=0.2.2",
     "pygments>=2.0.0",
     "ruff>=0.10.0",
+    "a2a-sdk[all]>=1.0.2",
+    "pandas>=3.0.0"
 ]
 
 [tool.uv]
