@@ -10,13 +10,9 @@ from langgraph.graph import END
 logger = logging.getLogger(__name__)
 
 
-async def tool_checker(state: State) -> Command:
+async def tool_checker(state: State, mcp_tools) -> Command:
     "Graph node to check mcp tool availability and update state accordingly"
 
-    mcp_client = mcp_manager.get_client("technical")
-    mcp_tools = (
-        await mcp_client.get_mcp_tools()
-    )  # async call to fetch tools from MCP client
     if mcp_tools is None:
         # No tools available, end workflow or trigger fallback
         logger.warning("No MCP tools available for the agent, ending workflow.")

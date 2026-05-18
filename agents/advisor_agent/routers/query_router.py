@@ -12,7 +12,7 @@ router = APIRouter(tags=["Advisor Agent"])
 # API endpoints
 @router.post("/query", response_model=QueryResponse)
 async def query_agent(request: QueryRequest) -> QueryResponse:
-    """Endpoint to process user queries through the agent workflow
+    """Router for user queries
     Args:
         request: QueryRequest containing the user's question and user_id
     Returns:
