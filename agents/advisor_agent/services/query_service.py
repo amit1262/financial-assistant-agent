@@ -14,7 +14,7 @@ async def process_query(user_id: str, user_query: str) -> dict:
     try:
         config = {"configurable": {"thread_id": user_id}}
         agent = manager.get_agent("advisor")
-        result = await agent.ainvoke(
+        result = await agent.graph.ainvoke(
             {"messages": [HumanMessage(content=user_query)]}, config=config
         )
         answer = result.get("final_response", "")

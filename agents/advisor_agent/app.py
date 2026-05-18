@@ -1,9 +1,10 @@
 import logging
 import sys
 import os
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 import mlflow
-from contextlib import asynccontextmanager
 
 # Setup logging BEFORE any other imports (force=True overrides existing config)
 logging.basicConfig(
@@ -13,15 +14,16 @@ logging.basicConfig(
     force=True,
 )
 logger = logging.getLogger(__name__)
+
+# imports after logging is configured
+from src.agent import AdvisorAgent
+from routers.query_router import router as query_router
+from services.agent_manager import manager
+
+
 logger.info("=" * 50)
 logger.info("Starting Financial Assistant Agent")
 logger.info("=" * 50)
-
-# imports after logging is configured to ensure any logs from routers/services are captured
-from routers.query_router import router as query_router
-from services.agent_manager import manager
-import src.agent as advisor_agent
-
 logger.info("Query router loaded successfully")
 
 
@@ -38,14 +40,9 @@ async def lifespan(app: FastAPI):
             f"Experiment Name: {os.getenv('MLFLOW_EXPERIMENT_NAME')} initialized in lifespan"
         )
 
-        # create agent graph and register with manager
-        advisor_agent_graph = await advisor_agent.build_agent_graph()
-        if advisor_agent_graph is None:
-            logger.error(
-                "Failed to build advisor agent graph. Check previous logs for details."
-            )
-            raise Exception("Advisor agent graph construction failed.")
-        manager.register_agent(agent_name="advisor", agent_instance=advisor_agent_graph)
+        # create agent and register with manager
+        advisor_agent = await AdvisorAgent().initialize()
+        manager.register_agent(agent_name="advisor", agent_instance=advisor_agent)
 
         yield  # app runs after this point
 

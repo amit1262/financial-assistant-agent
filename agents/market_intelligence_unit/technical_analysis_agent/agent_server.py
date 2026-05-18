@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class TechnicalAnalysisAgentServer:
     def __init__(self):
-        self.host = "0.0.0.0"
+        self.host = "market_intelligence_service"  # service name for docker network
         self.port = os.getenv("MIU_PORT", "8001")
         self.routes = []
         self.subapp = FastAPI()
