@@ -14,14 +14,16 @@ logger = logging.getLogger(__name__)
 
 class SynthesizerOutput(BaseModel):
     response: Optional[str] = Field(
-        description="The original response to the user if all required information is present"
+        description="The final response to the user query. Set only if information from specialized agents is sufficient to answer the query."
     )
-    key_points: Optional[str] = Field(description="Key points summarizing the response")
+    key_points: Optional[str] = Field(
+        description="Key points summarizing the final response. Set only if response is provided."
+    )
     is_complete: bool = Field(
-        description="True if the user query can be fully answered with current data"
+        description="True if the user query can be fully answered with current information. False if more information is needed from specialized agents."
     )
     feedback: Optional[str] = Field(
-        description="Description of what is missing or needs clarification if not complete"
+        description="Feedback for the planner on what specific information is missing or what needs to be clarified in order to answer the user query. Set only if is_complete is False."
     )
 
 
@@ -43,31 +45,35 @@ async def synthesizer(state: State, model: Runnable) -> Command:
     try:
         messages = state.get("messages", [])
         # Initialize LLM with structured output
-        structured_llm = model.with_structured_output(SynthesizerOutput)
+        structured_llm = model.with_structured_output(
+            SynthesizerOutput, method="json_schema", strict=True
+        )
         # Build context from messages
         user_query = ""
         for m in reversed(messages):
             if isinstance(m, HumanMessage):
                 user_query = m.content
                 break
+        prompt_content = f"User Query: {user_query}\n\n"
 
         # Collect tool data with agent attribution
         tool_data = []
         for m in messages:
             if isinstance(m, ToolMessage):
                 agent_name = m.name or "unknown_agent"
-                tool_data.append(
-                    f"Agent name: [{agent_name}] analysis agent. Market data: \n{m.content}"
-                )
+                agent_response = m.content
+                tool_data.append({"agent_name": agent_name, "response": agent_response})
 
-        prompt_content = f"User Query: {user_query}\n\nMarket Data (from agents):\n"
-        prompt_content += (
-            "\n---\n".join(tool_data) if tool_data else "No market data available yet."
-        )
-        logger.info(
-            f"[Advisor Agent Synthesizer] Checking completeness for query: {user_query[:50]}..."
-        )
-        response: SynthesizerOutput = await structured_llm.ainvoke(
+        prompt_content += f"Market Data from agents:\n"
+        for data in tool_data:
+            if isinstance(data, dict):
+                prompt_content += (
+                    f"\nAgent: {data['agent_name']}\nResponse: {data['response']}\n"
+                )
+            else:
+                # Fallback for string format
+                prompt_content += f"\n---\n{data}"
+        response = await structured_llm.ainvoke(
             [
                 SystemMessage(content=SYNTHESIZER_SYSTEM_PROMPT),
                 HumanMessage(content=prompt_content),
@@ -75,7 +81,7 @@ async def synthesizer(state: State, model: Runnable) -> Command:
         )
         if response.is_complete:
             logger.info(
-                "[Advisor Agent Synthesizer] Determined info is complete. Generating final response."
+                "[Advisor Agent Synthesizer] Market data is sufficient. Generating final response."
             )
             # Successfully answered - clear any previous feedback and reset iteration count
             return Command(
@@ -89,7 +95,7 @@ async def synthesizer(state: State, model: Runnable) -> Command:
             )
         else:
             logger.info(
-                f"[Advisor Agent Synthesizer] Determined info is incomplete. Feedback: {response.feedback}"
+                f"[Advisor Agent Synthesizer] Market data is not sufficient. Feedback: {response.feedback[:100]}"
             )
             # Check iteration limit before looping back
             iteration_count = state.get("iteration_count", 0)
@@ -121,7 +127,7 @@ async def synthesizer(state: State, model: Runnable) -> Command:
                     "iteration_count": iteration_count + 1,
                     "messages": [
                         AIMessage(
-                            content=f"Consulting sub-agents again: {response.feedback}"
+                            content=f"Synthesizer needs more info. Feedback: {response.feedback}"
                         )
                     ],
                 },

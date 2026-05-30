@@ -9,7 +9,7 @@ from langchain_core.messages import AIMessage, ToolMessage, ToolCall
 from src.state import State
 
 # A2A client imports
-from a2a.client import ClientConfig, create_client
+from a2a.client import ClientConfig, create_client, card_resolver
 from a2a.types import Message, Part, Role, SendMessageRequest
 from a2a.helpers import get_message_text
 
@@ -40,8 +40,7 @@ async def tool_executor(state: State):
     # Use a single httpx client for 2-minute timeout as per test_agent.py
     async with httpx.AsyncClient(timeout=httpx.Timeout(120.0)) as httpx_client:
         tasks = []
-        for tool_call in last_message.tool_calls:
-            call: ToolCall = tool_call
+        for call in last_message.tool_calls:
             agent_name = call["name"]  # e.g., 'technical', 'fundamental', 'news'
             query = call["args"].get("query", "")
             tool_call_id = call["id"]
@@ -94,8 +93,8 @@ async def call_sub_agent(
             f"[Advisor Agent Tool Executor] Invoking sub-agent '{agent_name}' with query: {query}"
         )
 
-        # 1. Get agent card from state (already deserialized)
-        card = agent_card_data
+        # 1. Parse agent card dict back to AgentCard object using A2A parser
+        card = card_resolver.parse_agent_card(agent_card_data)
 
         # 2. Setup A2A Client from config
         config = ClientConfig(

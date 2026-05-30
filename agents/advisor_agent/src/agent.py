@@ -2,7 +2,6 @@
 
 from functools import partial
 import os
-
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 from src.state import State
@@ -12,7 +11,6 @@ from src.graph_nodes.tool_node import tool_executor
 from src.graph_nodes.planner import planner
 import logging
 from langchain_openrouter import ChatOpenRouter
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 logger = logging.getLogger(__name__)
 
@@ -33,21 +31,24 @@ class AdvisorAgent:
     async def _initialize_model(self):
         """Initialize Chat LLM from environment variables"""
         model_name = os.getenv("ADVISOR_MODEL_NAME")
+        base_url = os.getenv("BASE_URL")
+        api_key = os.getenv("OPENROUTER_API_KEY")
         if model_name is None:
             logger.error("ADVISOR_MODEL_NAME environment variable is not set")
             raise RuntimeError("ADVISOR_MODEL_NAME environment variable is required")
+        if base_url is None:
+            logger.error("BASE_URL environment variable is not set")
+            raise RuntimeError("BASE_URL environment variable is required")
+        if api_key is None:
+            logger.error("OPENROUTER_API_KEY environment variable is not set")
+            raise RuntimeError("OPENROUTER_API_KEY environment variable is required")
+
         try:
-            # model = ChatOpenRouter(
-            #     model=model_name,
-            #     temperature=float(os.getenv("ADVISOR_MODEL_TEMPERATURE", 0.2)),
-            #     # max_tokens=1024,
-            #     max_retries=5,
-            # )
-            model = ChatGoogleGenerativeAI(
+            model = ChatOpenRouter(
                 model=model_name,
-                temperature=1.0,
-                max_retries=2,
-                google_api_key=os.getenv("GEMINI_API_KEY"),
+                base_url=base_url,
+                api_key=api_key,
+                max_retries=5,
             )
             self.model = model
             logger.info(f"[Advisor Agent] Initialized model: {model_name}")
@@ -86,3 +87,11 @@ class AdvisorAgent:
         graph = workflow.compile(checkpointer=memory)
         self.graph = graph
         logger.info("[Advisor Agent] Agent graph built and compiled successfully")
+
+        # visual graph export
+        graph_image = graph.get_graph().draw_mermaid_png()
+        with open("advisor_agent_graph.png", "wb") as f:
+            f.write(graph_image)
+        logger.info(
+            "[Advisor Agent] Agent graph visualization saved as advisor_agent_graph.png"
+        )

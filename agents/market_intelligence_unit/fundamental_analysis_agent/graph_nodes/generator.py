@@ -5,9 +5,8 @@
 
 import logging
 from fundamental_analysis_agent.state import State
-from fundamental_analysis_agent.model import model
-from services.mcp_client_manager import mcp_manager
 from langchain_core.messages import SystemMessage, AIMessage
+from langchain_core.runnables import Runnable
 
 logger = logging.getLogger(__name__)
 
@@ -36,15 +35,9 @@ SYSTEM_PROMPT = (
 )
 
 
-async def generator(state: State):
+async def generator(state: State, model: Runnable):
     # generate response using conversation history and context summary.
     try:
-        mcp_client = mcp_manager.get_client("fundamental")
-        mcp_tools = (
-            await mcp_client.get_mcp_tools()
-        )  # async call to fetch tools from MCP client
-        model_with_tools = model.bind_tools(mcp_tools)
-
         messages_history = state.get("messages", [])
         if not messages_history:
             logger.warning(
@@ -57,7 +50,7 @@ async def generator(state: State):
         llm_messages.extend(messages_history)
 
         # invoke LLM asynchronously
-        response = await model_with_tools.ainvoke(llm_messages)
+        response = await model.ainvoke(llm_messages)
 
         return {"messages": response}
     except Exception as e:

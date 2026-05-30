@@ -38,65 +38,83 @@ class PlannerOutput(BaseModel):
     )
 
 
-PLANNER_SYSTEM_PROMPT = (
-    "You are a Financial Planning Agent. "
-    "Your job is to analyze the user's query and the current state to decide which specialized sub-agents (Technical, Fundamental, News) need to be consulted."
-    "AVAILABLE AGENTS:"
-    "1. Technical Analysis Agent: For price action, indicators (RSI, SMA, MACD), and charts."
-    "2. Fundamental Analysis Agent: For earnings, balance sheets, ratios, and valuation."
-    "3. News Analysis Agent: For recent headlines, sentiment analysis, and market events."
-    "GUIDELINES:"
-    "- You can call up to 3 agents in one step."
-    "- Analyze any previous 'ToolMessages' to see what data has already been fetched."
-    "- If 'feedback' from the synthesizer is present in the state, only address the gaps it highlights."
-    "- If no more agent calls are needed to fulfill the user query, set next_node to 'synthesizer'."
-    "- If agent calls are required, set next_node to 'tool_executor'."
-)
+def build_system_prompt(agent_cards: dict) -> str:
+    """Build system prompt using agent card descriptions instead of hardcoded text."""
+    # Extract agent capabilities from agent cards
+    agents_context = ""
+    if agent_cards:
+        for agent_name, card in agent_cards.items():
+            name = card.get("name", agent_name)
+            description = card.get("description", "")
+            agents_context += f"- {name}: {description}\n\n"
+    else:
+        # Fallback if no agent cards available
+        agents_context = (
+            "- Technical Analysis Agent: For price action, indicators (RSI, SMA, MACD), and charts.\n"
+            "- Fundamental Analysis Agent: For earnings, balance sheets, ratios, and valuation.\n"
+            "- News Analysis Agent: For recent headlines, sentiment analysis, and market events.\n"
+        )
+
+    return (
+        "You are a Financial Planning Agent. "
+        "Your job is to analyze the user's query and the current state to decide which specialized sub-agents need to be consulted.\n\n"
+        "AVAILABLE AGENTS:\n"
+        f"{agents_context}\n"
+        "GUIDELINES:\n"
+        "- You can call up to 3 agents in one step.\n"
+        "- Analyze any previous 'ToolMessages' to see what data has already been fetched.\n"
+        "- If 'feedback' from the synthesizer is present in the state, only address the gaps it highlights.\n"
+        "- If no more agent calls are needed to fulfill the user query, set next_node to 'synthesizer'.\n"
+        "- If agent calls are required, set next_node to 'tool_executor'."
+    )
 
 
 async def planner(state: State, model: Runnable) -> Command:
     "Planner node: Decides whether to call sub-agents or proceed to synthesis."
 
     messages = state.get("messages", [])
+    agent_cards = state.get("agent_cards", {})
+
+    # Build system prompt from actual agent card descriptions
+    system_prompt = build_system_prompt(agent_cards)
+    logger.info(
+        f"[Advisor Agent Planner] System prompt constructed with agent cards: {system_prompt}"
+    )
 
     # Extract relevant context from state
     user_query = ""
-    # Usually the first human message in this session or the latest one
+    # first human message in this session or the latest one
     for m in reversed(messages):
         if isinstance(m, HumanMessage):
             user_query = m.content
             break
-
-    # synthesizer feedback might be stored in a specific key or as an instructions message
-    # Assuming it's in state["synthesizer_feedback"] for this example
-    feedback = state.get("synthesizer_feedback", "")
-
-    # Construct prompt
     prompt_content = f"User Query: {user_query}\n"
-    if feedback:
-        prompt_content += f"Synthesizer Feedback/Gaps: {feedback}\n"
 
-    # Add summary of what we already have from ToolMessages
+    # Add summary of ToolMessages
     tool_results = [m.content for m in messages if isinstance(m, ToolMessage)]
     if tool_results:
         prompt_content += "Current findings from previous tool calls:\n" + "\n".join(
             tool_results
         )
+    # synthesizer feedback if any
+    feedback = state.get("synthesizer_feedback", "")
+    if feedback:
+        prompt_content += f"Synthesizer Feedback/Gaps: {feedback}\n"
+
     try:
         # Initialize the model with structured output
-        planner_llm = model.with_structured_output(PlannerOutput)
-        response: PlannerOutput = await planner_llm.ainvoke(
+        planner_llm = model.with_structured_output(
+            PlannerOutput, method="json_schema", strict=True
+        )
+        response = await planner_llm.ainvoke(
             [
-                SystemMessage(content=PLANNER_SYSTEM_PROMPT),
+                SystemMessage(content=system_prompt),
                 HumanMessage(content=prompt_content),
             ]
         )
-
-        # Debug logging
         logger.info(
             f"[Advisor Agent Planner] Raw response: {response}, Type: {type(response)}"
         )
-
         # Check if response is valid
         if response is None:
             logger.error("[Advisor Agent Planner] Model returned None response")
@@ -120,7 +138,6 @@ async def planner(state: State, model: Runnable) -> Command:
                         id=f"call_{uuid.uuid4().hex[:8]}",
                     )
                 )
-        # Return Command to control flow
         logger.info(
             f"[Advisor Agent Planner] Decided on next node: {response.next_node} with reasoning: {response.reasoning}"
         )

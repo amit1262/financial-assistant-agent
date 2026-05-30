@@ -7,7 +7,8 @@ import mlflow
 
 # sub-agents imports
 from technical_analysis_agent.agent_server import TechnicalAnalysisAgentServer
-
+from fundamental_analysis_agent.agent_server import FundamentalAnalysisAgentServer
+from news_analysis_agent.agent_server import NewsAnalysisAgentServer
 
 # Setup logging BEFORE any other imports (force=True overrides existing config)
 logging.basicConfig(
@@ -35,8 +36,10 @@ async def lifespan(app: FastAPI):
             f"Experiment Name: {os.getenv('MLFLOW_EXPERIMENT_NAME')} initialized in lifespan"
         )
 
-        # initialize agent servers
-        await technical_agent_server.initialize()  # initialize the technical agent server (loads tools, model, graph)
+        # initialize agent servers (cascaded loading of agent, fastapi app, tools, model, graph)
+        await technical_agent_server.initialize()
+        await fundamental_agent_server.initialize()
+        await news_agent_server.initialize()
 
         # startup information display
         logger.info("Agents initialized and registered.")
@@ -61,6 +64,13 @@ app = FastAPI(lifespan=lifespan)
 
 # Initialize and register sub-agents (technical, fundamental, news)
 technical_agent_server = TechnicalAnalysisAgentServer()
+fundamental_agent_server = FundamentalAnalysisAgentServer()
+news_agent_server = NewsAnalysisAgentServer()
 
 # mount sub-agents to main app (mount the FastAPI subapi, not the server object)
 app.mount("/technical", technical_agent_server.subapp)
+app.mount("/fundamental", fundamental_agent_server.subapp)
+app.mount("/news", news_agent_server.subapp)
+logger.info(
+    "Market Intelligence Unit setup complete. FastAPI app is ready to serve requests."
+)

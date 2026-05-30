@@ -37,7 +37,9 @@ async def generator(state: State, model: Runnable):
     try:
         messages_history = state.get("messages", [])
         if not messages_history:
-            logger.warning("No messages in state, skipping generation")
+            logger.warning(
+                "[Technical Agent] No messages in state, skipping generation"
+            )
             return {}
 
         # Build LLM messages list
@@ -49,5 +51,5 @@ async def generator(state: State, model: Runnable):
 
         return {"messages": response}
     except Exception as e:
-        logger.error(f"Error in generator node: {e}", exc_info=True)
+        logger.error(f"[Technical Agent] Error in generator node: {e}", exc_info=True)
         return {"messages": [AIMessage(content=f"Error in generator: {str(e)}")]}
