@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, HTTPException
 import logging
 from services import query_service
-from services.schemas import QueryResponse
+from services.schemas import QueryRequest, QueryResponse
 
 logger = logging.getLogger(__name__)
 
@@ -11,12 +11,17 @@ router = APIRouter(tags=["Market Intelligence Agents"])
 
 # API endpoints
 @router.post("/{agent_name}", response_model=QueryResponse)
-async def route_agent(agent_name: str, request: Request):
-    "Endpoint to process agent queries through the agent workflow"
+async def route_agent(agent_name: str, request: QueryRequest) -> QueryResponse:
+    """Endpoint to process user queries through a specific market intelligence sub-agent
+    Args:
+        agent_name: Name of the agent to route the query to (e.g., "technical", "fundamentals", "news")
+        request: QueryRequest containing the question/prompt and optional user metadata
+    Returns:
+        QueryResponse containing the final analysis or diagnostic error details
+    """
 
     try:
-        request_data = await request.json()
-        agent_query = request_data.get("question", "")
+        agent_query = request.question
         logger.info(f"Received query for agent {agent_name}: {agent_query}")
         if agent_query.strip() == "":
             logger.warning(f"[QueryRouter] Empty query for agent {agent_name}")

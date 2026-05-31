@@ -2,7 +2,6 @@
 
 from langgraph.types import Command
 from technical_analysis_agent.state import State
-from services.mcp_client_manager import mcp_manager
 import logging
 from langchain_core.messages import SystemMessage
 from langgraph.graph import END
@@ -15,7 +14,9 @@ async def tool_checker(state: State, mcp_tools) -> Command:
 
     if mcp_tools is None:
         # No tools available, end workflow or trigger fallback
-        logger.warning("No MCP tools available for the agent, ending workflow.")
+        logger.warning(
+            "[Technical Analysis Agent] No MCP tools available for the agent, ending workflow."
+        )
         error_message = "No MCP tools configured/available for the agent."
         # global variables
         fallback_message = (
@@ -29,7 +30,9 @@ async def tool_checker(state: State, mcp_tools) -> Command:
         }
         return Command(update=update_content, goto=END)
     else:
-        logger.info(f"MCP tools available: {len(mcp_tools)}. Continuing workflow.")
+        logger.info(
+            f"[Technical Analysis Agent] MCP tools available: {len(mcp_tools)}. Continuing workflow."
+        )
         update_content = {
             "status": "success",
             "error": "",
