@@ -14,9 +14,17 @@ async def process_query(user_id: str, user_query: str) -> dict:
     try:
         config = {"configurable": {"thread_id": user_id}}
         agent = manager.get_agent("advisor")
-        result = await agent.graph.ainvoke(
-            {"messages": [HumanMessage(content=user_query)]}, config=config
-        )
+
+        # Reset only specific state fields for new query, preserving message history
+        reset_state = {
+            "messages": [HumanMessage(content=user_query)],
+            "final_response": "",
+            "response_complete": False,
+            "iteration_count": 0,
+            "max_iteration_hit": False,
+        }
+
+        result = await agent.graph.ainvoke(reset_state, config=config)
         answer = result.get("final_response", "")
         # Signal: Empty response from agent
         if not answer:

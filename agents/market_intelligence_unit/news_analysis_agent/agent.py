@@ -43,29 +43,31 @@ class NewsAnalysisAgent:
     # LLM used by the agent
     async def _initialize_model(self):
         """Initialize Chat LLM from environment variables"""
-        model_name = os.getenv("NEWS_ANALYSIS_MODEL_NAME")
+        model_name = os.getenv("NEWS_MODEL_NAME")
+        base_url = os.getenv("BASE_URL")
+        api_key = os.getenv("OPENROUTER_API_KEY")
         if model_name is None:
-            logger.error("NEWS_ANALYSIS_MODEL_NAME environment variable is not set")
-            raise RuntimeError(
-                "NEWS_ANALYSIS_MODEL_NAME environment variable is required"
-            )
+            logger.error("NEWS_MODEL_NAME environment variable is not set")
+            raise RuntimeError("NEWS_MODEL_NAME environment variable is required")
+        if base_url is None:
+            logger.error("BASE_URL environment variable is not set")
+            raise RuntimeError("BASE_URL environment variable is required")
+        if api_key is None:
+            logger.error("OPENROUTER_API_KEY environment variable is not set")
+            raise RuntimeError("OPENROUTER_API_KEY environment variable is required")
+
         try:
             model = ChatOpenRouter(
                 model=model_name,
-                temperature=float(os.getenv("NEWS_ANALYSIS_MODEL_TEMPERATURE", 0.2)),
-                # max_tokens=1024,
+                base_url=base_url,
+                api_key=api_key,
                 max_retries=5,
             )
-            model_with_tools = model.bind_tools(self.mcp_tools)
-            self.model = model_with_tools
-            logger.info(
-                f"[News Analysis Agent] Initialized model: {model_name} with tools: {[tool.name for tool in self.mcp_tools]}"
-            )
+            self.model = model
+            logger.info(f"[News Agent] Initialized model: {model_name}")
         except Exception as e:
-            logger.error(
-                f"[News Analysis Agent] Failed to initialize model '{model_name}': {e}"
-            )
-            raise RuntimeError(f"[News Analysis Agent] Error initializing model: {e}")
+            logger.error(f"[News Agent] Failed to initialize model '{model_name}': {e}")
+            raise RuntimeError(f"[News Agent] Error initializing model: {e}")
 
     async def _build_graph(self) -> None:
         # build and return the agent's workflow graph using LangGraph
@@ -103,5 +105,5 @@ class NewsAnalysisAgent:
         mcp_client = await MCPClient().initialize()
         self.mcp_tools = await mcp_client.get_mcp_tools()
         logger.info(
-            f"[News Analysis Agent] Fetched MCP tools: {[tool.name for tool in self.mcp_tools]}"
+            f"[News Agent] Fetched MCP tools: {[tool.name for tool in self.mcp_tools]}"
         )

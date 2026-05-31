@@ -54,7 +54,7 @@ class FundamentalAnalysisAgentServer:
         ]
         # Create agent card
         agent_card = AgentCard(
-            name="Fundamental Analysis Agent",
+            name="Fundamental Analysis Agent (internal_name=fundamental)",
             description=(
                 "A specialized fundamental analysis sub-agent that serves as part of a multi-agent financial analysis system. "
                 "Receives fundamental analysis queries from the main orchestrator agent and translates them into precise tool calls "

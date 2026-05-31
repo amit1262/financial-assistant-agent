@@ -49,7 +49,7 @@ class NewsAnalysisAgentServer:
         ]
         # Create agent card
         agent_card = AgentCard(
-            name="News Analysis Agent",
+            name="News Analysis Agent (internal_name=news)",
             description=(
                 "A specialized news analysis sub-agent that serves as part of a multi-agent financial analysis system. "
                 "Receives news analysis queries from the main orchestrator agent and translates them into precise tool calls "

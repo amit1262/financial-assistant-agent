@@ -54,7 +54,7 @@ class TechnicalAnalysisAgentServer:
         ]
         # Create agent card
         agent_card = AgentCard(
-            name="Technical Analysis Agent",
+            name="Technical Analysis Agent (internal_name=technical)",
             description=(
                 "A specialized technical analysis sub-agent that serves as part of a multi-agent financial analysis system. "
                 "Receives technical analysis queries from the main orchestrator agent and translates them into precise tool calls "

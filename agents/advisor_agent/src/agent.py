@@ -5,10 +5,10 @@ import os
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 from src.state import State
-from src.graph_nodes.synthesizer import synthesizer
+from src.graph_nodes.synthesizer import synthesizer, synthesizer_condition
 from src.graph_nodes.agent_card_retriver import cards_retriever
-from src.graph_nodes.tool_node import tool_executor
-from src.graph_nodes.planner import planner
+from src.graph_nodes.sub_agent_executor import sub_agent_executor
+from src.graph_nodes.planner import planner, planner_condition
 import logging
 from langchain_openrouter import ChatOpenRouter
 
@@ -59,7 +59,6 @@ class AdvisorAgent:
             raise RuntimeError(f"[Advisor Agent] Error initializing model: {e}")
 
     # Build LangGraph workflow
-
     async def _build_graph(self):
         # workflow graph definition
         workflow = StateGraph(state_schema=State)
@@ -68,18 +67,30 @@ class AdvisorAgent:
         workflow.add_node("agent_card_retriever", cards_retriever)
         planner_node = partial(planner, model=self.model)
         workflow.add_node("planner", planner_node)
-        workflow.add_node("tool_executor", tool_executor)
+        workflow.add_node("sub_agent_executor", sub_agent_executor)
         synthesizer_node = partial(synthesizer, model=self.model)
         workflow.add_node("synthesizer", synthesizer_node)
 
         # add edges
         workflow.add_edge(START, "agent_card_retriever")
-        workflow.add_edge(
-            "agent_card_retriever", "planner"
-        )  # planner determines the next node based on the state and feedback
-        workflow.add_edge(
-            "tool_executor", "synthesizer"
-        )  # synthesizer determines the next node based on completeness of data and feedback
+        # planner determines the next node based on the state and feedback
+        workflow.add_edge("agent_card_retriever", "planner")
+        workflow.add_conditional_edges(
+            "planner",
+            planner_condition,
+            {
+                "sub_agents": "sub_agent_executor",
+                "no_sub_agents": "synthesizer",
+                "end": END,
+            },
+        )
+        # synthesizer determines the next node based on completeness of data and feedback
+        workflow.add_edge("sub_agent_executor", "synthesizer")
+        workflow.add_conditional_edges(
+            "synthesizer",
+            synthesizer_condition,
+            {"planner": "planner", "end": END},
+        )
 
         # state persistence setup
         memory = MemorySaver()
