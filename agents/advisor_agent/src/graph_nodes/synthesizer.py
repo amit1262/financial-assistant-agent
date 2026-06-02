@@ -23,17 +23,21 @@ class SynthesizerOutput(BaseModel):
 
 
 SYNTHESIZER_SYSTEM_PROMPT = (
-    "You are a Financial Synthesizer Agent. Your job is to analyze the user's query and the data fetched from specialized agents to provide a final response to the user query."
-    "Make sure your response is accurate, complete, and grounded only in the data available from the specialized agents."
-    "Do not make assumptions or use external knowledge. If the data is insufficient to answer the query, provide specific feedback on what information is missing or what needs to be clarified."
-    "CRITICAL INSTRUCTIONS:\n"
-    "1. Analysis: Look at the messages history and most recent user query. Can you answer the query COMPLETELY and ACCURATELY?. If yes, go ahead and generate the response."
-    "2. Completeness Check: \n"
-    "   - If information is missing (e.g., user asked for fundamental data but you only have technicals), set is_complete=False.\n"
-    "   - If the data is present but needs clarification to be useful, set is_complete=False.\n"
-    "   - If query is fully answerable, set is_complete=True.\n"
-    "3. Feedback: If is_complete=False, specify exactly what information is missing or what needs to be clarified. This information would be used by the planner to fetch additional data or refine the query.\n"
-    "4. Retry Errors: If you encounter any errors in ToolMessages, don't keep suggesting the same tool. For example, an API rate limit error means that tool is currently unavailable, so no point suggesting it again in next planner iteration. Instead, focus on other tools or clarify the query to work with available data.\n"
+    "You are a Financial Synthesizer Agent. Your job is to analyze the user's query, the message history, "
+    "and the data fetched from specialized agents to provide the best possible final response.\n"
+    "CRITICAL CONSTRAINT RULES:\n"
+    "- GROUNDING: Make sure your response is accurate, complete, and grounded ONLY in the data available from the specialized agents. Do not make assumptions or use external knowledge.\n"
+    "- AGENT UNAVAILABILITY IS A HARD BOUNDARY: Read the latest '[Planner response]' messages carefully. If the Planner explicitly states that certain sub-agents are unavailable, broken, or not present, you must accept that those data channels are permanently CLOSED. Do not ask for data from them.\n"
+    "- RETRY ERRORS: If you see error messages or rate limits in 'ToolMessages', do not suggest or request that specific agent/tool again. It is dead for this turn loop.\n\n"
+    "EXECUTION INSTRUCTIONS:\n"
+    "1. Analysis: Review the message history and the user's query. Determine what data has been successfully fetched vs. what data is missing.\n"
+    "2. Feasible Completeness Check:\n"
+    "   - Set `is_complete=True` if you have all the information required to answer the query.\n"
+    "   - Set `is_complete=True` if some information is missing BUT the Planner or ToolMessages indicate that the necessary agents are unavailable, rate-limited, or failed. (You cannot fetch what is broken; finalize the answer with what you have).\n"
+    "   - Set `is_complete=False` ONLY if required data is missing AND the relevant sub-agent is active, available, and has not been tried yet for this specific query step.\n"
+    "3. Output Formatting:\n"
+    "   - If `is_complete=True`: Generate the final `response`. If data was missing due to unavailable agents, explicitly declare this limitation to the user in your response (e.g., 'Note: Technical analysis systems are currently offline, so this report focuses on fundamental data...'). Set `feedback` to null.\n"
+    "   - If `is_complete=False`: Set `response` to null, and specify exactly what missing information the planner needs to fetch next in the `feedback` field. Be specific."
 )
 
 
@@ -42,13 +46,18 @@ async def synthesizer(state: State, model: Runnable) -> Command:
     max_iterations = 10  # Max loops between planner & synthesizer
     try:
         messages = state.get("messages", [])
+
         # Initialize LLM with structured output
         structured_llm = model.with_structured_output(
             SynthesizerOutput, method="json_schema", strict=True
         )
         prompt = [SystemMessage(content=SYNTHESIZER_SYSTEM_PROMPT)]
         prompt.extend(messages)
+
+        # Use ainvoke for structured output parsing - wait for completion
+        logger.info("[Synthesizer] Invoking with structured output")
         response = await structured_llm.ainvoke(prompt)
+
         if response.is_complete:
             logger.info(
                 "[Synthesizer] Market data is sufficient. Generating final response."
@@ -56,7 +65,9 @@ async def synthesizer(state: State, model: Runnable) -> Command:
             # Successfully answered - clear any previous feedback and reset iteration count
             return {
                 "final_response": response.response,
-                "messages": [AIMessage(content=response.response)],
+                "messages": [
+                    AIMessage(content=f"[Synthesizer response]: {response.response}")
+                ],
                 "iteration_count": 0,  # Reset for next query
                 "max_iteration_hit": False,
                 "response_complete": True,
@@ -77,7 +88,7 @@ async def synthesizer(state: State, model: Runnable) -> Command:
                     "final_response": f"Response generation stopped after {max_iterations} iterations. Last response: {response.response}",
                     "messages": [
                         AIMessage(
-                            content=f"Max iterations reached. Stopping. Last response: {response.response}"
+                            content=f"[Synthesizer response]: Max iterations reached. Stopping. Last response: {response.response}"
                         )
                     ],
                     "iteration_count": 0,  # Reset for next query

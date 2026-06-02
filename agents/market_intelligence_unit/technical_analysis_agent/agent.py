@@ -60,7 +60,6 @@ class TechnicalAnalysisAgent:
                 model=model_name,
                 base_url=base_url,
                 api_key=api_key,
-                max_retries=5,
             )
             self.model = model
             logger.info(f"[Technical  Agent] Initialized model: {model_name}")
@@ -75,30 +74,27 @@ class TechnicalAnalysisAgent:
         # workflow graph definition
         workflow = StateGraph(state_schema=State)
 
-        # add graph nodes
-        tool_checker_partial = partial(
-            tool_checker, mcp_tools=self.mcp_tools
-        )  # inject tools into tool_checker node
+        # inject tools into tool_checker node
+        tool_checker_partial = partial(tool_checker, mcp_tools=self.mcp_tools)
         workflow.add_node("tool_checker", tool_checker_partial)
+        # inject model into generator node
         generator_partial = partial(
-            generator, model=self.model
-        )  # inject model into generator node
+            generator, model=self.model, mcp_tools=self.mcp_tools
+        )
         workflow.add_node("generator", generator_partial)
         workflow.add_node("tool_node", ToolNode(tools=self.mcp_tools))
 
         # add edges
-        workflow.add_edge(
-            START, "tool_checker"
-        )  # can either goto END or generator based on tool_checker output
+        workflow.add_edge(START, "tool_checker")
         workflow.add_conditional_edges(
             "generator", tools_condition, {"tools": "tool_node", "__end__": END}
         )
         workflow.add_edge("tool_node", "generator")
+
         # state persistence setup
         memory = MemorySaver()
         # compile graph
         graph = workflow.compile(checkpointer=memory)
-
         self.graph = graph
 
     async def _get_mcp_tools(self) -> None:

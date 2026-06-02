@@ -4,7 +4,6 @@ from typing import List, Optional, Literal
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langgraph.types import Command
-from langgraph.graph import END
 from src.state import State
 import uuid
 import logging
@@ -21,19 +20,13 @@ class AgentCall(BaseModel):
     agent_query: str = Field(
         description="The specific query string to send to the sub-agent"
     )
-    call_id: str = Field(
-        default_factory=lambda: str(uuid.uuid4()),
-        description="An id to track this agent call",
-    )
 
 
 class PlannerOutput(BaseModel):
     reasoning: str = Field(
         description="Short reasoning about the plan/chain-of-thoughts you have for answering the query."
     )
-    agent_calls: Optional[List[AgentCall]] = Field(
-        default_factory=list, description="List of sub-agent calls to make"
-    )
+    agent_calls: List[AgentCall] = Field(description="List of sub-agent calls to make")
 
 
 def build_system_prompt(agent_cards: dict) -> str:
@@ -49,17 +42,19 @@ def build_system_prompt(agent_cards: dict) -> str:
             description = card.get("description", "")
             agents_context += f"- {name}: {description}\n\n"
     return (
-        "You are a Financial Planning Agent. "
-        "Your job is to analyze the user's query and the current state to decide which specialized sub-agents need to be consulted.\n\n"
+        "You are an aggressive, strategic Financial Planning Agent. "
+        "Your sole responsibility is to break down the user's query and dispatch it to the correct specialized sub-agents. "
+        "Your default stance is ACTION - you must call sub-agents unless the exact live data required to answer the user's question is ALREADY fully visible in the conversation history.\n\n"
         "AVAILABLE AGENTS:\n"
         f"{agents_context}\n"
-        "GUIDELINES:\n"
-        "- You can call up to 3 agents in one step.\n"
-        "- When specifying agent names in agent_calls, use the internal names shown in parentheses (e.g., 'technical', 'fundamental', 'news'), NOT the full names.\n"
-        "- Analyze any previous 'ToolMessages' to see what data has already been fetched.\n"
-        "- If 'feedback' from the synthesizer is present in the state, only address the gaps it highlights.\n"
-        "- If no more agent calls are needed to fulfill the user query, set next_node to 'synthesizer'.\n"
-        "- If agent calls are required, set next_node to 'tool_executor'."
+        "CRITICAL INSTRUCTIONS:\n"
+        "- INITIAL TURN DIRECTIVE: If the message history contains NO tool results/findings yet, you MUST immediately select and call the relevant agents needed to answer the query. Do not pass an empty list on a fresh query.\n"
+        "- CONVERSATION HISTORY ANALYSIS: Look closely at any existing 'ToolMessages'. If an agent has already successfully fetched specific data, do not call that same agent again with the same query.\n"
+        "- SYNTHESIZER FEEDBACK COMPLIANCE: If 'Synthesizer Feedback/Gaps' are provided at the end of the prompt, treat them as hard constraints. Focus your agent calls EXCLUSIVELY on resolving the explicit data gaps highlighted by the synthesizer.\n\n"
+        "OUTPUT REQUIREMENT:\n"
+        "- You can request any (or all) of the agents calls simultaneously in your `agent_calls` array.\n"
+        "- Use the precise internal names in the `agent_calls.agent_name` field: 'technical', 'fundamental', or 'news'.\n"
+        "- If and only if all necessary financial data is already present in the message history to fully and perfectly answer the user's request without further data gathering, leave the `agent_calls` list empty."
     )
 
 
@@ -91,21 +86,30 @@ async def planner(state: State, model: Runnable) -> Command:
         )
         prompt = [SystemMessage(content=system_prompt)]
         prompt.extend(messages)
+
+        # Use ainvoke for structured output parsing - wait for completion
+        logger.info(f"[Planner] Invoking with structured output")
         response = await planner_llm.ainvoke(prompt)
 
         logger.info(f"[Planner] response: {response.reasoning[:100]}")
         agent_calls = response.agent_calls or []
 
         # Ensure each agent call has a unique ID
+        processed_agent_calls = []
         for call in agent_calls:
-            if not call.call_id or call.call_id == "An id to track this agent call":
-                call.call_id = str(uuid.uuid4())
+            processed_agent_calls.append(
+                {
+                    "agent_name": call.agent_name,
+                    "agent_query": call.agent_query,
+                    "call_id": str(uuid.uuid4()),
+                }
+            )
 
         return {
             "messages": [
                 AIMessage(
                     content=f"[Planner response]: {response.reasoning}",
-                    agent_calls=agent_calls,
+                    agent_calls=processed_agent_calls,
                 )
             ],
             "response_complete": False,
@@ -130,6 +134,7 @@ def planner_condition(state: State) -> str:
     "Condition function for planner node to determine next step based on planner output."
     messages = state.get("messages", [])
     last_message = messages[-1]
+    logger.info(f"[Planner Condition] last message: {last_message}")
     if state.get("response_complete"):
         return "end"  # If planner indicates response is complete, end the workflow
     if (

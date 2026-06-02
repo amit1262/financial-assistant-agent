@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 import logging
 from services.schemas import QueryRequest, QueryResponse
 from services import query_service
@@ -54,4 +55,37 @@ async def query_agent(request: QueryRequest) -> QueryResponse:
         )
         raise HTTPException(
             status_code=500, detail="Internal server error while processing query"
+        )
+
+
+@router.post("/query-stream")
+async def query_agent_stream(request: QueryRequest):
+    """Stream agent execution events in real-time using event streaming API.
+
+    Returns: Server-Sent Events (SSE) stream of JSON-formatted protocol events
+
+    Event types:
+    - "event": Raw protocol events (messages, values, updates, tools, lifecycle, etc.)
+    - "complete": Final status event with answer, empty_response, or error
+
+    Client can check event["status"] for: success, empty_response, error
+    """
+    try:
+        user_id = request.user_id
+        # Return streaming response with event generator
+        return StreamingResponse(
+            content=query_service.process_query_stream(
+                user_id=user_id, user_query=request.question
+            ),
+            media_type="application/x-ndjson",  # Newline-delimited JSON
+            headers={"X-Accel-Buffering": "no"},  # Disable proxy buffering
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Unexpected error in query-stream endpoint for user {request.user_id}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail="Internal server error while processing stream"
         )

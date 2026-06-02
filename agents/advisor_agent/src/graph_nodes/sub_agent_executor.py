@@ -1,4 +1,6 @@
 # a node to execute tool calls (sub-agents) and return results
+"To Do - potential node additions for future iterations -"
+"1. Improve streaming - right now we wait for the full response from the sub-agent before sending any update. We could stream partial results back to the main agent"
 
 import uuid
 import asyncio
@@ -11,7 +13,7 @@ from src.state import State
 # A2A client imports
 from a2a.client import ClientConfig, create_client, card_resolver
 from a2a.types import Message, Part, Role, SendMessageRequest
-from a2a.helpers import get_message_text
+from a2a.helpers import get_message_text, get_artifact_text
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +42,9 @@ async def sub_agent_executor(state: State):
     async with httpx.AsyncClient(timeout=httpx.Timeout(timeout)) as httpx_client:
         tasks = []
         for call in last_message.agent_calls:
-            agent_name = call.agent_name
-            query = call.agent_query
-            call_id = call.call_id
+            agent_name = call["agent_name"]
+            query = call["agent_query"]
+            call_id = call["call_id"]
             # Get agent card from state
             agent_card_data = agent_cards.get(agent_name)
             if not agent_card_data:
@@ -104,12 +106,24 @@ async def call_sub_agent(
         stream = client.send_message(SendMessageRequest(message=message))
 
         async for event in stream:
-            # All data comes through status_update messages
-            if event.HasField("status_update"):
-                if event.status_update.status.HasField("message"):
-                    msg_text = get_message_text(event.status_update.status.message)
+            # Get the final result from artifact_update events (not status updates)
+            if event.HasField("artifact_update"):
+                artifact = event.artifact_update.artifact
+                full_response_text = get_artifact_text(artifact)
+                logger.info(
+                    f"[{agent_name}] Received artifact: {full_response_text[:100]}..."
+                )
+            # Status updates are just for progress tracking, don't accumulate them
+            elif event.HasField("status_update"):
+                status_msg = (
+                    event.status_update.status.message
+                    if event.status_update.status.HasField("message")
+                    else None
+                )
+                if status_msg:
+                    msg_text = get_message_text(status_msg)
                     if msg_text:
-                        full_response_text += msg_text + "\n"
+                        logger.debug(f"[{agent_name}] Status: {msg_text[:100]}...")
 
             # Task events mark task start, ignore them
             elif event.HasField("task"):

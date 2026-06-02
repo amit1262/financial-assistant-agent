@@ -48,10 +48,11 @@ class AdvisorAgent:
                 model=model_name,
                 base_url=base_url,
                 api_key=api_key,
-                max_retries=5,
             )
             self.model = model
-            logger.info(f"[Advisor Agent] Initialized model: {model_name}")
+            logger.info(
+                f"[Advisor Agent] Initialized model: {model_name} with 60s timeout"
+            )
         except Exception as e:
             logger.error(
                 f"[Advisor Agent] Failed to initialize model '{model_name}': {e}"

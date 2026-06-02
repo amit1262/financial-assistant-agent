@@ -63,7 +63,6 @@ class FundamentalAnalysisAgent:
                 model=model_name,
                 base_url=base_url,
                 api_key=api_key,
-                max_retries=5,
             )
             self.model = model
             logger.info(f"[Fundamental Agent] Initialized model: {model_name}")

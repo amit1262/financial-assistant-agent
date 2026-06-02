@@ -13,7 +13,7 @@ from a2a.types.a2a_pb2 import (
     TaskStatusUpdateEvent,
 )
 from technical_analysis_agent.agent import TechnicalAnalysisAgent
-from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.messages import AIMessage, ToolMessage, SystemMessage
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class TechnicalAnalysisAgentExecutor(AgentExecutor):
                 task_id=task.id,
                 context_id=task.context_id,
                 state=TaskState.TASK_STATE_WORKING,
-                text="[Technical Analysis Executor] Processing task...",
+                text="[Technical Executor] Processing task.\n",
             )
         )
         try:
@@ -58,61 +58,61 @@ class TechnicalAnalysisAgentExecutor(AgentExecutor):
                 if context.message.parts
                 else str(context.message)
             )
-            logger.info(
-                f"[Technical Agent Executor] Received query: {agent_query_text}"
-            )
+            logger.info(f"[Technical Executor] Received query: {agent_query_text}")
 
             # Build the input for the graph with text content
-            agent_msg = {"messages": [AIMessage(content=agent_query_text)]}
+            initial_state = {
+                "messages": [AIMessage(content=agent_query_text)],
+                "status": "working",
+                "error": "",
+            }
             config = {"configurable": {"thread_id": task.id}}
+            # Use astream_events to stream state updates from LangGraph
+            final_state = None
+            astream_events = await self.agent.graph.astream_events(
+                input=initial_state, config=config, version="v3"
+            )
+            async for event in astream_events:
+                method = event.get("method")
+                params = event.get("params", {})
+                event_data = params.get("data")
 
-            # Use astream to stream events from LangGraph
-            final_message = ""
-            async for event in self.agent.graph.astream(
-                agent_msg, config=config, stream_mode="values"
-            ):
-                if "messages" in event:
-                    msg = event["messages"][-1]
-                    status_text = ""
-
-                    if isinstance(msg, AIMessage):
-                        if msg.tool_calls:
-                            # 1. LLM is calling tools
-                            tools = ", ".join([tc["name"] for tc in msg.tool_calls])
-                            status_text = f"[Technical Agent] Calling tools: {tools}"
-                        elif msg.content:
-                            # 2. LLM is providing a final or intermediate answer
-                            final_message = msg.content
-                            status_text = f"[Technical Agent] {final_message}..."
-                    elif isinstance(msg, ToolMessage):
-                        # 3. Tool has finished executing
-                        status_text = (
-                            f"[Technical Agent] Tool '{msg.name}' completed execution."
-                        )
-
-                    if status_text:
-                        await event_queue.enqueue_event(
-                            new_text_status_update_event(
-                                task_id=task.id,
-                                context_id=task.context_id,
-                                state=TaskState.TASK_STATE_WORKING,
-                                text=status_text,
+                # Capture full state snapshots via values channel
+                if method == "values" and isinstance(event_data, dict):
+                    final_state = event_data
+                    if "messages" in event_data:
+                        msg = event_data["messages"][-1]
+                        latest_message = ""
+                        if isinstance(msg, AIMessage) or isinstance(msg, SystemMessage):
+                            if msg.content:
+                                latest_message = msg.content[:100]
+                            if msg.tool_calls:
+                                # 1. LLM is calling tools
+                                tools = ", ".join([tc["name"] for tc in msg.tool_calls])
+                                latest_message += (
+                                    f"\n[Technical Agent] Calling tools: {tools}"
+                                )
+                        elif isinstance(msg, ToolMessage):
+                            # 3. Tool has finished executing
+                            latest_message += f"[Technical Executor] Tool '{msg.name}' completed execution."
+                        if latest_message:
+                            await event_queue.enqueue_event(
+                                new_text_status_update_event(
+                                    task_id=task.id,
+                                    context_id=task.context_id,
+                                    state=TaskState.TASK_STATE_WORKING,
+                                    text=f"{latest_message}\n",
+                                )
                             )
-                        )
-
-            # 4. Enqueue the Result Artifact
-            # We skip the status update for final_message here because the very next event
-            # is the Artifact which contains the full text.
+            # 4. Enqueue the Result Artifact - final result is in the last state snapshot
+            agent_response = final_state.get("messages", [])[-1].content
             await event_queue.enqueue_event(
                 new_text_artifact_update_event(
                     task_id=task.id,
                     context_id=task.context_id,
                     name="technical_analysis_result",
-                    text="",
+                    text=f"[Technical Executor] Final result: {agent_response}",
                 )
-            )
-            logger.info(
-                f"[Technical Agent Executor] Result updated - {final_message}..."
             )
             # 5. Report Completion (using v1.0 helper)
             await event_queue.enqueue_event(
@@ -120,25 +120,22 @@ class TechnicalAnalysisAgentExecutor(AgentExecutor):
                     task_id=task.id,
                     context_id=task.context_id,
                     state=TaskState.TASK_STATE_COMPLETED,
-                    text="[Technical Analysis Executor] Technical analysis completed successfully.",
+                    text="[Technical Executor] Task Finished.",
                 )
             )
-
         except Exception as e:
-            logger.error(
-                f"[Technical Agent Executor] Execution failed: {e}", exc_info=True
-            )
+            logger.error(f"[Technical Executor] Execution failed: {e}", exc_info=True)
             await event_queue.enqueue_event(
                 new_text_status_update_event(
                     task_id=task.id,
                     context_id=task.context_id,
                     state=TaskState.TASK_STATE_FAILED,
-                    text=f"[Technical Analysis Executor] Technical analysis failed: {e}",
+                    text=f"[Technical Executor] Technical analysis failed: {e}",
                 )
             )
             raise e  # re-raise to ensure upstream handling/logging
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
         "Cancel the current execution (not implemented)."
-        logger.warning("[Technical Agent Executor] Cancel requested but not supported.")
+        logger.warning("[Technical Executor] Cancel requested but not supported.")
         raise Exception("cancel not supported")

@@ -28,13 +28,13 @@ async def lifespan(app: FastAPI):
     "Lifespan function to initialize resources before the app starts accepting requests"
     try:
         # Initialize MLflow tracking inside the lifespan to ensure correct async context
-        mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI"))
-        mlflow.set_experiment(os.getenv("MLFLOW_EXPERIMENT_NAME"))
-        mlflow.langchain.autolog()
-        logger.info(
-            f"MLflow Tracking URI: {os.getenv('MLFLOW_TRACKING_URI')}, "
-            f"Experiment Name: {os.getenv('MLFLOW_EXPERIMENT_NAME')} initialized in lifespan"
-        )
+        # mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI"))
+        # mlflow.set_experiment(os.getenv("MLFLOW_EXPERIMENT_NAME"))
+        # mlflow.langchain.autolog()
+        # logger.info(
+        #     f"MLflow Tracking URI: {os.getenv('MLFLOW_TRACKING_URI')}, "
+        #     f"Experiment Name: {os.getenv('MLFLOW_EXPERIMENT_NAME')} initialized in lifespan"
+        # )
 
         # initialize agent servers (cascaded loading of agent, fastapi app, tools, model, graph)
         await technical_agent_server.initialize()

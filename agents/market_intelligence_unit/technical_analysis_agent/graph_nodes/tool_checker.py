@@ -34,7 +34,7 @@ async def tool_checker(state: State, mcp_tools) -> Command:
             f"[Technical Analysis Agent] MCP tools available: {len(mcp_tools)}. Continuing workflow."
         )
         update_content = {
-            "status": "success",
+            "status": "working",
             "error": "",
         }
         return Command(update=update_content, goto="generator")
